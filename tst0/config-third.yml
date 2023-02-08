@@ -1,0 +1,58 @@
+---
+config:
+  account:
+    account-alias-0:
+      defaults:
+        account_email: accountnnn@myorg.com
+        account_number: '012345678910'
+        cloudfront_acm: arn:aws:acm:us-east-1:012345678910:certificate/x0x0x0x0-x0x0x0x0-x0x0x0x0
+        default_dns: dev.product0.myorg.com
+        default_hosted_zone: X0X0X0X0X0X0X0
+        deploy_bucket: account-alias-0-deploy
+        tf_region: us-west-2
+        tf_state_bucket: account-alias-0-terraform-state
+        tf_state_table: terraform_state_lock
+      environment:
+        dev:
+          env_dns: dev.product0.myorg.com
+          env_hosted_zone: X0X0X0X0X0X0X0
+          ssh_key: developer
+        qa:
+          env_dns: dev.product0.myorg.com
+          env_hosted_zone: X0X0X0X0X0X0X0
+          ssh_key: developer
+        uat:
+          env_dns: dev.product0.myorg.com
+          env_hosted_zone: X0X0X0X0X0X0X0
+          ssh_key: developer
+      regions:
+        eu-west-1:
+          acm: arn:aws:acm:eu-west-1:012345678910:certificate/x0x0x0x0-x0x0x0x0-x0x0x0x0
+          private_subnets: subnet-x0x0x0x0x0x0x0,subnet-x0x0x0x0x0x0x0,subnet-x0x0x0x0x0x0x0
+          public_subnets: subnet-x0x0x0x0x0x0x0,subnet-x0x0x0x0x0x0x0,subnet-x0x0x0x0x0x0x0
+          vpc: vpc-11fdde76
+          vpc_cidrs: 10.20.30.40/21
+        us-east-1:
+          acm: arn:aws:acm:us-east-1:012345678910:certificate/x0x0x0x0-x0x0x0x0-x0x0x0x0
+        us-west-2:
+          acm: arn:aws:acm:us-west-2:012345678910:certificate/x0x0x0x0-x0x0x0x0-x0x0x0x0
+          api_vpc_endpoqa: vpce-x0x0x0x0x0x0x0
+          nat_gw_ips: 40.30.20.10,40.30.20.10,40.30.20.10
+          private_subnets: subnet-x0x0x0x0x0x0x0,subnet-x0x0x0x0x0x0x0,subnet-x0x0x0x0x0x0x0
+          public_subnets: subnet-x0x0x0x0x0x0x0,subnet-x0x0x0x0x0x0x0,subnet-x0x0x0x0x0x0x0
+          vpc: vpc-0b38b253c1ac84c75
+          vpc_cidrs: 10.20.30.40/21
+    account-alias-1:
+      defaults:
+        account_email: accountnnn@myorg.com
+        account_number: '012345678911'
+        cloudfront_acm: arn:aws:acm:us-east-1:012345678911:certificate/x0x0x0x0-x0x0x0x0-x0x0x0x0
+        default_dns: prod.product0.myorg.com.
+        default_hosted_zone: X0X0X0X0X0X0X0
+        deploy_bucket: account-alias-1-deploy
+        tf_region: us-west-2
+        tf_state_bucket: account-alias-1-terraform-state
+        tf_state_table: terraform_state_lock
+      environment:
+        prod:
+          jenkins_status_email: prod.distribution.list@myorg.com

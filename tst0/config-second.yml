@@ -1,0 +1,58 @@
+---
+config:
+  defaults:
+    buildtools_image: docker.repo.myorg.com/shared/buildtools:latest
+    tools:
+      datadog:
+        api_key: long-hex-string
+        api_url: https://api.datadoghq.com/
+        app_key: very-long-hex-string
+      docker:
+        container_base_image: docker-proxy.repo.myorg.com/amazonlinux:latest
+        gradle_build_image: docker-proxy.repo.myorg.com/gradle:6.5.1-jdk8
+        proxy: docker-proxy.repo.myorg.com
+        private_repo: docker.repo.myorg.com
+        private_repo_uri: https://docker.repo.myorg.com
+      jenkins:
+        cidrs: 10.20.30.40/23,10.20.30.40/23,10.20.30.40/23
+      veracode:
+        id: long-hex-string
+        key: very-long-hex-string
+
+  branch:
+    develop:
+      environment: dev
+    master:
+      environment: uat
+    release:
+      environment: uat
+    hotfix:
+      environment: preprod
+
+  environment:
+    dev:
+      account_name: account-alias-0
+      bastion_sg_name: bastion
+      shared_data_bucket: myorg-common-dev
+      ssh_key: developer
+    qa:
+      account_name: account-alias-0
+      bastion_sg_name: bastion
+      shared_data_bucket: myorg-common-qa
+      ssh_key: developer
+    uat:
+      account_name: account-alias-0
+      bastion_sg_name: bastion
+      shared_data_bucket: myorg-common-uat
+      ssh_key: developer
+    preprod:
+      account_name: account-alias-1
+      bastion_sg_name: bastion
+      shared_data_bucket: myorg-common-preprod
+      ssh_key: developer
+    prod:
+      account_name: account-alias-1
+      bastion_sg_name: bastion
+      shared_data_bucket: myorg-common-prod
+      ssh_key: developer
+
