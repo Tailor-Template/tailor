@@ -10,9 +10,9 @@ import logging
 import glob
 import re
 import traceback
-import yaml
-import json
 import copy
+import json
+import yaml
 
 # get command line args
 parser = argparse.ArgumentParser()
@@ -31,7 +31,7 @@ except Exception:
 
 # globals
 PRESET_ORDERED_KEYS = {
-    "AWS_DEFAULT": ['environment', 'account', 'branch', 'region']
+    "AWS_DEFAULT": ['environment', 'account_name', 'branch', 'region']
 }
 
 #-------------------------------------------------------------------------------
@@ -119,9 +119,22 @@ def read_config_files(config_files: list):
         logger.info(f"Parsing config file: {config_file}")
         with open(config_file) as f:
             config = yaml.safe_load(f)
-        config['config']['source_config_file'] = config_file
+        config['config']['resolved'] = {'source_config_file': config_file}
         configs.append(config['config'])
     return configs
+
+
+#-------------------------------------------------------------------------------
+# create a single structure to represent all config resolution
+#-------------------------------------------------------------------------------
+def consolidate_configs(configs: list, resolved_keys: dict):
+    consolidated_config = {'config': {}}
+    for config in reversed(configs):
+        logger.debug(f"Adding resolved values from {config['resolved']['source_config_file']}")
+        merge_keys(config['defaults'], config['resolved'], True)
+        merge_keys(consolidated_config['config'], config['defaults'], True)
+    merge_keys(consolidated_config['config'], resolved_keys, True)
+    return consolidated_config
 
 
 #-------------------------------------------------------------------------------
@@ -130,58 +143,76 @@ def read_config_files(config_files: list):
 #-------------------------------------------------------------------------------
 def resolve_configs(ordered_keys: list, configs: list, resolved_keys: dict):
     fully_resolved = False
-    # merge_keys(config, 'resolved', resolved_keys, overwrite=False)
     while not fully_resolved:
         fully_resolved = True
         for config in configs:
-            logger.debug(f"Parsing config tree for {config['source_config_file']}")
-            resolved_and_collapsed = colapse_and_get_ordered_list_keys(ordered_keys, config, resolved_keys)
-            if resolved_and_collapsed:
+            logger.debug(f"Parsing config tree for {config['resolved']['source_config_file']}")
+            resolution_occured = colapse_and_get_ordered_list_keys(ordered_keys, config, resolved_keys)
+            if resolution_occured:
                 fully_resolved = False
-            print(resolved_and_collapsed)
-            # sys.exit()
-        # sys.exit()
     return configs
 
 
 #-------------------------------------------------------------------------------
+# check if any unresolved orderd keys are in list
+#-------------------------------------------------------------------------------
+def check_for_unresolved_ordered_keys(ordered_keys: list, config_node: map):
+    for ordered_key in ordered_keys:
+        if ordered_key in config_node:
+            if not isinstance(config_node[ordered_key], (str, int, float)):
+                return True
+    return False
+
+
+#-------------------------------------------------------------------------------
 # iterate through keys in tree that match ordered_keys (descending) and find
-# element matching value for specified key, and bring back to top level,
-# including default keys
+# element matching value for specified key, and bring back to top level
+# as default keys
 #-------------------------------------------------------------------------------
 def colapse_and_get_ordered_list_keys(ordered_keys: list, config_node: map, resolved_keys: dict):
-    resolved_and_collapsed = False
-    for key in config_node:
+    move_leaf_keys_to_resolved_key_list(config_node)
+    resolution_occured = False
+    for key in list(config_node):
+        if key in ['resolved', 'defaults']:
+            continue
         node = config_node[key]
+        move_leaf_keys_to_resolved_key_list(node)
         for ordered_key in ordered_keys:
-            if ordered_key == key:
-                # print(f"{ordered_key} --> {key}")
-                if ordered_key in resolved_keys:
-                    if resolved_keys[ordered_key] not in node:
-                        continue
-                        print(yaml.dump(config_node))
+            if key == ordered_key:                                                  # is key that should be resolvable
+                if key in resolved_keys:                                            # key has resolvable value
+                    if resolved_keys[ordered_key] not in node:                      # value does not exist in list, cannot be resolved
+
+                        # if 'defaults' not in node and 'resolved' not in node:       # ignore special keys
+                        #     continue
+                        merge_keys(node['defaults'], node['resolved'], True)
+                        merge_keys(config_node['defaults'], node['defaults'], True)
                         del(config_node[key])
-                        print(yaml.dump(config_node))
+                        resolution_occured = True
+                        continue
+
                     resolved_node = node[resolved_keys[ordered_key]]
-                    colapse_and_get_ordered_list_keys(ordered_keys, resolved_node, resolved_keys)
+                    resolution_occured = colapse_and_get_ordered_list_keys(ordered_keys, resolved_node, resolved_keys)
+                    if check_for_unresolved_ordered_keys(ordered_keys, resolved_node):
+                        logger.info(f"found more ordered keys in {resolved_keys[ordered_key]}\n:{yaml.dump(resolved_node)}")
+                        break
 
-                    # if 'defaults' not in resolved_node:
-                    #     resolved_node['defaults'] = {}
-                    print("resolving_leaf_keys")
-                    # print('--------------------')
-                    # print(yaml.dump(node))
                     move_leaf_keys_to_resolved_key_list(resolved_node)
-                    move_leaf_keys_to_resolved_key_list(node)
+                    merge_keys(resolved_node['defaults'], resolved_node['resolved'], True)
+                    merge_keys(node['defaults'], node['resolved'], True)
                     merge_keys(node['defaults'], resolved_node['defaults'], True)
-                    merge_keys(node['resolved'], resolved_node['resolved'], True)
-                    update_resolved_keys(node['resolved'], ordered_keys, resolved_keys)
-                    update_resolved_keys(node['defaults'], ordered_keys, resolved_keys)
-                    del node[resolved_keys[ordered_key]]
+                    merge_keys(config_node['defaults'], node['defaults'], True)
+                    update_resolved_keys(config_node['defaults'], ordered_keys, resolved_keys)
+                    del(config_node[key])
+                    resolution_occured = True
+
+                    # print(f"key {key}")
+
                     # print('--------------------')
                     # print(yaml.dump(node))
-                    resolved_and_collapsed = True      # flag that some resolving took place
-
-    return resolved_and_collapsed
+                    # resolution_occured = True      # flag that some resolving took place
+    # if resolution_occured:
+    #     print(yaml.dump(config_node))
+    return resolution_occured
 
 
 #-------------------------------------------------------------------------------
@@ -193,7 +224,7 @@ def move_leaf_keys_to_resolved_key_list(node: map):
     if 'defaults' not in node:
         node['defaults'] = {}
     for key in list(node):
-        if isinstance(node[key], str):
+        if isinstance(node[key], (str, int, float)):
             node['resolved'][key] = node[key]
             del(node[key])
 
@@ -230,5 +261,7 @@ if __name__ == "__main__":
     # configs = read_config_files(config_files)
     configs = read_config_files(args.config_files)
     resolved_config = resolve_configs(ordered_keys, copy.deepcopy(configs), resolved_keys)
+    config_map = consolidate_configs(resolved_config, resolved_keys)
+    print(yaml.dump(config_map))
     tailor_files = get_tailor_files(args.tailor_files)
     sys.exit(0)

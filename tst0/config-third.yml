@@ -1,6 +1,6 @@
 ---
 config:
-  account:
+  account_name:
     account-alias-0:
       defaults:
         account_email: accountnnn@myorg.com
@@ -18,14 +18,14 @@ config:
           env_hosted_zone: X0X0X0X0X0X0X0
           ssh_key: developer
         qa:
-          env_dns: dev.product0.myorg.com
+          env_dns: qa.product0.myorg.com
           env_hosted_zone: X0X0X0X0X0X0X0
           ssh_key: developer
         uat:
-          env_dns: dev.product0.myorg.com
+          env_dns: uat.product0.myorg.com
           env_hosted_zone: X0X0X0X0X0X0X0
           ssh_key: developer
-      regions:
+      region:
         eu-west-1:
           acm: arn:aws:acm:eu-west-1:012345678910:certificate/x0x0x0x0-x0x0x0x0-x0x0x0x0
           private_subnets: subnet-x0x0x0x0x0x0x0,subnet-x0x0x0x0x0x0x0,subnet-x0x0x0x0x0x0x0
@@ -54,5 +54,12 @@ config:
         tf_state_bucket: account-alias-1-terraform-state
         tf_state_table: terraform_state_lock
       environment:
+        preprod:
+          env_dns: preprod.product0.myorg.com
+          env_hosted_zone: X0X0X0X0X0X0X0
+          ssh_key: developer
         prod:
-          jenkins_status_email: prod.distribution.list@myorg.com
+          env_dns: prod.product0.myorg.com
+          env_hosted_zone: X0X0X0X0X0X0X0
+          ssh_key: support
+

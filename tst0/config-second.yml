@@ -24,6 +24,8 @@ config:
       environment: dev
     master:
       environment: uat
+    main:
+      environment: uat
     release:
       environment: uat
     hotfix:
