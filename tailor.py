@@ -270,15 +270,15 @@ def substitue_keys_in_tailor_files(tailor_files: list, config_map: map):
         with open(tailor_file_name) as f:
             tailor_file = f.read()
 
-        (f, tempfile_name) = tempfile.mkstemp()
+        (f, tempfile_name) = tempfile.mkstemp(dir='.')
         logger.info(f"writing {tailor_file_name} to {new_tailor_file_name}")
         with open(tempfile_name, 'w') as f:
             for line in tailor_file.splitlines():
                 f.write(line)
 
-        # if os.path.isfile(new_tailor_file_name):
-        #     os.remove(new_tailor_file_name)
-        # os.rename(tempfile_name, new_tailor_file_name)
+        if os.path.isfile(new_tailor_file_name):
+            os.remove(new_tailor_file_name)
+        os.rename(tempfile_name, new_tailor_file_name)
 
 
 #-------------------------------------------------------------------------------
