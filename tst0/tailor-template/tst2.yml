@@ -1,5 +1,6 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: >-
+  {{ account_name }}
   AWS CloudFormation Sample Template AutoScalingMultiAZWithNotifications: Create
   a multi-az, load balanced and Auto Scaled sample web site running on an Apache
   Web Serever. The application is configured to span all Availability Zones in

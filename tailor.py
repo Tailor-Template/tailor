@@ -251,6 +251,7 @@ def update_resolved_keys(keylist: map, resolvable_keys: list, resolved_keys: dic
 # print resolved structure to yaml file
 #-------------------------------------------------------------------------------
 def print_config_map(resolved_paramers_filename, config_map):
+    logger.info(f"writing all resolved keys to {resolved_paramers_filename}")
     with open(resolved_paramers_filename, 'w') as f:
         yaml.dump(config_map, f)
 
@@ -263,23 +264,32 @@ def print_config_map(resolved_paramers_filename, config_map):
 #-------------------------------------------------------------------------------
 def substitue_keys_in_tailor_files(tailor_files: list, config_map: map):
     for tailor_file_name in tailor_files:
-        # tailor_file = ''
         new_tailor_file_name = re.sub('tailor-template-', '', tailor_file_name)
         new_tailor_file_name = re.sub('tailor-template/', '', tailor_file_name)
-        # new_tailor_file_name = re.sub('//', '/', tailor_file_name)
-        with open(tailor_file_name) as f:
-            tailor_file = f.read()
 
         (f, tempfile_name) = tempfile.mkstemp(dir='.')
-        logger.info(f"writing {tailor_file_name} to {new_tailor_file_name}")
-        with open(tempfile_name, 'w') as f:
-            for line in tailor_file.splitlines():
-                f.write(line)
+        logger.info(f"tailoring {tailor_file_name} and writing to {new_tailor_file_name}")
+        with open(tailor_file_name, "r") as infile, open(tempfile_name, "w") as outfile:
+            for line in infile:
+                new_line = re.sub(r'\{\{\s(.+?)\s\}\}', lambda m: get_token_replacement(m, config_map), line)
+                outfile.write(new_line)
 
         if os.path.isfile(new_tailor_file_name):
             os.remove(new_tailor_file_name)
         os.rename(tempfile_name, new_tailor_file_name)
 
+
+#-------------------------------------------------------------------------------
+# function for re replacement
+#-------------------------------------------------------------------------------
+def get_token_replacement(m: re.Match, config_map: map):
+    token = m.group(1)
+    if token not in config_map['config']:
+        print(f"ERROR: token {token} could not be resolved")
+        sys.exit(1)
+    else:
+        value = config_map['config'][token]
+    return str(value)
 
 #-------------------------------------------------------------------------------
 # Run

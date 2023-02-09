@@ -1,6 +1,6 @@
 <!-- https://www.w3.org/standards/xml/core.html -->
 <part number="1976">
-  <name>Windscreen Wiper</name>
+  <name>{{ account_name }} Windscreen Wiper</name>
   <description>The Windscreen wiper
     automatically removes rain
     from your windscreen, if it

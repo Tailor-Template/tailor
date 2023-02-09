@@ -1,7 +1,7 @@
 {
     // https://s3.us-west-2.amazonaws.com/cloudformation-templates-us-west-2/Managed_EC2_Batch_Environment.template
     "AWSTemplateFormatVersion" : "2010-09-09",
-    "Description" : "AWS CloudFormation Sample Template Managed Single Batch Job Queue: This template demonstrates the usage of simple Job Queue and EC2 style Compute Environment.  **WARNING** You will be billed for the AWS resources used if you create a stack from this template.",
+    "Description" : "{{ account_name }} AWS CloudFormation Sample Template Managed Single Batch Job Queue: This template demonstrates the usage of simple Job Queue and EC2 style Compute Environment.  **WARNING** You will be billed for the AWS resources used if you create a stack from this template.",
     "Resources" : {
       "VPC" : {
         "Type" : "AWS::EC2::VPC",

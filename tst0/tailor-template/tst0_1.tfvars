@@ -5,7 +5,7 @@ aws_key_path = "~/.ssh/bosh.pem"
 aws_key_name = "bosh"
 aws_region = "us-east-1"
 network = "10.10"
-
+aws_account_alias = "{{ account_name }}"
 # These most often come from terraform-aws-vpc, but can be manually set
 # if you don't want to or can't use that module.
 aws_route_table_private_id = "X"
