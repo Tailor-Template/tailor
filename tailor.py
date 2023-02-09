@@ -39,7 +39,7 @@ PRESET_ORDERED_KEYS = {
 #-------------------------------------------------------------------------------
 def get_preset_list(preset_list_name):
     if preset_list_name in PRESET_ORDERED_KEYS:
-        logger.debug(f"Using preset orderd list '{preset_list_name}': {PRESET_ORDERED_KEYS[preset_list_name]}")
+        logger.debug(f"Using preset ordered list '{preset_list_name}': {PRESET_ORDERED_KEYS[preset_list_name]}")
         return PRESET_ORDERED_KEYS[preset_list_name]
     logger.error(f"No preset ordered key list exists for '{preset_list_name}'")
     sys.exit(1)
@@ -49,10 +49,10 @@ def get_preset_list(preset_list_name):
 # create list of keys to resolve in order of prececence
 # if first key matches pattern :LISTNAME: then lookup preset values for LISTNAME
 #-------------------------------------------------------------------------------
-def get_ordered_keys_list(ordered_keys):
-    if (match := re.fullmatch(r':([A-Z_]+):$', ordered_keys[0])) is not None:
+def get_resolvable_keys_list(resolvable_keys):
+    if (match := re.fullmatch(r':([A-Z_]+):$', resolvable_keys[0])) is not None:
         return get_preset_list(match.groups(1)[0])
-    return ordered_keys
+    return resolvable_keys
 
 
 #-------------------------------------------------------------------------------
@@ -138,16 +138,16 @@ def consolidate_configs(configs: list, resolved_keys: dict):
 
 
 #-------------------------------------------------------------------------------
-# parse config files and resolve nodes of matching ordered_keys and add to
+# parse config files and resolve nodes of matching resolvable_keys and add to
 # resolved_keys
 #-------------------------------------------------------------------------------
-def resolve_configs(ordered_keys: list, configs: list, resolved_keys: dict):
+def resolve_configs(resolvable_keys: list, configs: list, resolved_keys: dict):
     fully_resolved = False
     while not fully_resolved:
         fully_resolved = True
         for config in configs:
             logger.debug(f"Parsing config tree for {config['resolved']['source_config_file']}")
-            resolution_occured = colapse_and_get_ordered_list_keys(ordered_keys, config, resolved_keys)
+            resolution_occured = colapse_and_get_ordered_list_keys(resolvable_keys, config, resolved_keys)
             if resolution_occured:
                 fully_resolved = False
     return configs
@@ -156,62 +156,56 @@ def resolve_configs(ordered_keys: list, configs: list, resolved_keys: dict):
 #-------------------------------------------------------------------------------
 # check if any unresolved orderd keys are in list
 #-------------------------------------------------------------------------------
-def check_for_unresolved_ordered_keys(ordered_keys: list, config_node: map):
-    for ordered_key in ordered_keys:
-        if ordered_key in config_node:
-            if not isinstance(config_node[ordered_key], (str, int, float)):
+def check_for_unresolved_resolvable_keys(resolvable_keys: list, config_node: map):
+    for resolvable_key in resolvable_keys:
+        if resolvable_key in config_node:
+            if not isinstance(config_node[resolvable_key], (str, int, float)):
                 return True
     return False
 
 
 #-------------------------------------------------------------------------------
-# iterate through keys in tree that match ordered_keys (descending) and find
+# iterate through keys in tree that match resolvable_keys (descending) and find
 # element matching value for specified key, and bring back to top level
 # as default keys
 #-------------------------------------------------------------------------------
-def colapse_and_get_ordered_list_keys(ordered_keys: list, config_node: map, resolved_keys: dict):
+def colapse_and_get_ordered_list_keys(resolvable_keys: list, config_node: map, resolved_keys: dict):
     move_leaf_keys_to_resolved_key_list(config_node)
     resolution_occured = False
     for key in list(config_node):
         if key in ['resolved', 'defaults']:
             continue
+        if key not in resolvable_keys:
+            logger.warning(f"Unknown element structure '{key}' nested in {yaml.dump(config_node)}")
         node = config_node[key]
         move_leaf_keys_to_resolved_key_list(node)
-        for ordered_key in ordered_keys:
-            if key == ordered_key:                                                  # is key that should be resolvable
+        for resolvable_key in resolvable_keys:
+            if key == resolvable_key:                                                  # is key that should be resolvable
                 if key in resolved_keys:                                            # key has resolvable value
-                    if resolved_keys[ordered_key] not in node:                      # value does not exist in list, cannot be resolved
-
-                        # if 'defaults' not in node and 'resolved' not in node:       # ignore special keys
-                        #     continue
-                        merge_keys(node['defaults'], node['resolved'], True)
-                        merge_keys(config_node['defaults'], node['defaults'], True)
+                    merge_keys(node['defaults'], node['resolved'], True)
+                    merge_keys(config_node['defaults'], node['defaults'], True)
+                    if resolved_keys[key] not in node:                      # value does not exist in list, cannot be resolved
                         del(config_node[key])
                         resolution_occured = True
                         continue
 
-                    resolved_node = node[resolved_keys[ordered_key]]
-                    resolution_occured = colapse_and_get_ordered_list_keys(ordered_keys, resolved_node, resolved_keys)
-                    if check_for_unresolved_ordered_keys(ordered_keys, resolved_node):
-                        logger.info(f"found more ordered keys in {resolved_keys[ordered_key]}\n:{yaml.dump(resolved_node)}")
+                    resolved_node = node[resolved_keys[key]]
+                    resolution_occured = colapse_and_get_ordered_list_keys(resolvable_keys, resolved_node, resolved_keys)
+
+                    # if there are unresolved sub structures that are resolvable, do no delete this node
+                    if check_for_unresolved_resolvable_keys(resolvable_keys, resolved_node):
+                        logger.info(f"found more ordered keys in {resolved_keys[key]}\n:{yaml.dump(resolved_node)}")
                         break
 
                     move_leaf_keys_to_resolved_key_list(resolved_node)
                     merge_keys(resolved_node['defaults'], resolved_node['resolved'], True)
-                    merge_keys(node['defaults'], node['resolved'], True)
+                    # merge_keys(node['defaults'], node['resolved'], True)
                     merge_keys(node['defaults'], resolved_node['defaults'], True)
                     merge_keys(config_node['defaults'], node['defaults'], True)
-                    update_resolved_keys(config_node['defaults'], ordered_keys, resolved_keys)
+                    update_resolved_keys(config_node['defaults'], resolvable_keys, resolved_keys)
                     del(config_node[key])
                     resolution_occured = True
 
-                    # print(f"key {key}")
-
-                    # print('--------------------')
-                    # print(yaml.dump(node))
-                    # resolution_occured = True      # flag that some resolving took place
-    # if resolution_occured:
-    #     print(yaml.dump(config_node))
     return resolution_occured
 
 
@@ -243,9 +237,9 @@ def merge_keys(node_to: map, node_from: map, overwrite: bool):
 # if any new key from keylist exists in ordered list, add to resolved_keys if
 # not already present
 #-------------------------------------------------------------------------------
-def update_resolved_keys(keylist: map, ordered_keys: list, resolved_keys: dict):
+def update_resolved_keys(keylist: map, resolvable_keys: list, resolved_keys: dict):
     for key in keylist:
-        if key in ordered_keys and key not in resolved_keys:
+        if key in resolvable_keys and key not in resolved_keys:
             resolved_keys[key] = keylist[key]
             logger.debug(f"Found ordered key {key} as {keylist[key]}")
 
@@ -256,11 +250,11 @@ def update_resolved_keys(keylist: map, ordered_keys: list, resolved_keys: dict):
 if __name__ == "__main__":
     logger = setup_logger(args.verbose)
     resolved_keys = parse_defaults(args.defaults)
-    ordered_keys = get_ordered_keys_list(args.ordered_keys)
+    resolvable_keys = get_resolvable_keys_list(args.ordered_keys)
     # config_files = get_config_files(args.config_files)
     # configs = read_config_files(config_files)
     configs = read_config_files(args.config_files)
-    resolved_config = resolve_configs(ordered_keys, copy.deepcopy(configs), resolved_keys)
+    resolved_config = resolve_configs(resolvable_keys, copy.deepcopy(configs), resolved_keys)
     config_map = consolidate_configs(resolved_config, resolved_keys)
     print(yaml.dump(config_map))
     tailor_files = get_tailor_files(args.tailor_files)
