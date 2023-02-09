@@ -10,11 +10,10 @@ config:
     terraform_version: 1.0.0
   environment:
     defaults:
-      x: y
       foo: baz
       jenkins_status_email: env.distribution.list@myorg.com
     foo: bar
     prod:
       defaults:
-        x: z
+        foo: andrew
       jenkins_status_email: prod.distribution.list@myorg.com

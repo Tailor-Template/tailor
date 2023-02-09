@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 # examples:
-#    python3 tailor.py --config-files tst0/config-first.yml tst0/config-second.yml tst0/config-third.yml --defaults account=account-alias-1 environments=prod region=us-east-1 --verbose
+#   python3 tailor.py --config-files tst0/config-first.yml tst0/config-second.yml tst0/config-third.yml --defaults environment=prod branch=hotfix region=us-east-1 --verbose --tailor-files 'tst0/tailor-template/tst0*' 'tst0/tailor-template/tst1_[01].*' 'tst0/tailor-template/tst*.yml'
 
 import os
 import sys
@@ -11,15 +11,17 @@ import glob
 import re
 import traceback
 import copy
-import json
+import tempfile
+# import json
 import yaml
 
 # get command line args
 parser = argparse.ArgumentParser()
 parser.add_argument("--config-files", nargs='+', default=[], help="list of configuration files in order of precedence", required=True)
-parser.add_argument("--tailor-files", nargs='+', default=[], help="List of Glob File Patterns to tailor (default None)", required=False)
+parser.add_argument("--tailor-files", nargs='+', default=[], help="List of glob patterns to use for searching files to tailor (default None)", required=False)
 parser.add_argument("--defaults", nargs='*', default=[], help="list of key value pairs (default None)", required=False)
-parser.add_argument("--ordered-keys", nargs='*', default=[":AWS_DEFAULT:"], help="list of key names to resolve in config files (default :AWS_DEFAULT:)", required=False)
+parser.add_argument("--resolve-keys", nargs='*', default=[":AWS_DEFAULT:"], help="list of key names to resolve in config files (default :AWS_DEFAULT:)", required=False)
+parser.add_argument("--resolved-file", type=str, default="tailored.yml", help="output file name ", required=False)
 # parser.add_argument("--threads", type=int, default=1, help="Number of Threads (default 1)", required=False)
 parser.add_argument("--verbose", default=False, help="add verbose messaging (default false)", required=False, action='store_true')
 
@@ -30,7 +32,7 @@ except Exception:
     sys.exit(traceback.print_exc())
 
 # globals
-PRESET_ORDERED_KEYS = {
+PRESET_RESOLVE_KEYS = {
     "AWS_DEFAULT": ['environment', 'account_name', 'branch', 'region']
 }
 
@@ -38,9 +40,9 @@ PRESET_ORDERED_KEYS = {
 # get ordered list of keys form list matching keyword
 #-------------------------------------------------------------------------------
 def get_preset_list(preset_list_name):
-    if preset_list_name in PRESET_ORDERED_KEYS:
-        logger.debug(f"Using preset ordered list '{preset_list_name}': {PRESET_ORDERED_KEYS[preset_list_name]}")
-        return PRESET_ORDERED_KEYS[preset_list_name]
+    if preset_list_name in PRESET_RESOLVE_KEYS:
+        logger.debug(f"Using preset ordered list '{preset_list_name}': {PRESET_RESOLVE_KEYS[preset_list_name]}")
+        return PRESET_RESOLVE_KEYS[preset_list_name]
     logger.error(f"No preset ordered key list exists for '{preset_list_name}'")
     sys.exit(1)
 
@@ -103,10 +105,11 @@ def get_config_files(config_files: list):
 def get_tailor_files(tailor_files: list):
     tailor_files_list = []
     for tailor_file_glob in tailor_files:
-        tailor_files_match = glob.glob(tailor_file_glob)
-        if not tailor_files_match:
+        tailor_file_matches = glob.glob(tailor_file_glob)
+        if not tailor_file_matches:
             logger.warning(f"Tailor file pattern, {tailor_file_glob}, does not match any files")
-        tailor_files_list.append(tailor_files_match)
+        for tailor_file_match in tailor_file_matches:
+            tailor_files_list.append(tailor_file_match)
     return tailor_files_list
 
 
@@ -180,12 +183,12 @@ def colapse_and_get_ordered_list_keys(resolvable_keys: list, config_node: map, r
         node = config_node[key]
         move_leaf_keys_to_resolved_key_list(node)
         for resolvable_key in resolvable_keys:
-            if key == resolvable_key:                                                  # is key that should be resolvable
+            if key == resolvable_key:                                               # is key that should be resolvable
                 if key in resolved_keys:                                            # key has resolvable value
                     merge_keys(node['defaults'], node['resolved'], True)
                     merge_keys(config_node['defaults'], node['defaults'], True)
-                    if resolved_keys[key] not in node:                      # value does not exist in list, cannot be resolved
-                        del(config_node[key])
+                    if resolved_keys[key] not in node:                              # value does not exist in list, cannot be resolved
+                        del(config_node[key])                                       # delete key
                         resolution_occured = True
                         continue
 
@@ -245,17 +248,52 @@ def update_resolved_keys(keylist: map, resolvable_keys: list, resolved_keys: dic
 
 
 #-------------------------------------------------------------------------------
+# print resolved structure to yaml file
+#-------------------------------------------------------------------------------
+def print_config_map(resolved_paramers_filename, config_map):
+    with open(resolved_paramers_filename, 'w') as f:
+        yaml.dump(config_map, f)
+
+
+#-------------------------------------------------------------------------------
+# parse each file in list and rewite as new file with tokens replaced
+# * remove file prefix 'tailor-'
+# * remove directory 'tailor/'
+# * otherwise rewrite original file
+#-------------------------------------------------------------------------------
+def substitue_keys_in_tailor_files(tailor_files: list, config_map: map):
+    for tailor_file_name in tailor_files:
+        # tailor_file = ''
+        new_tailor_file_name = re.sub('tailor-template-', '', tailor_file_name)
+        new_tailor_file_name = re.sub('tailor-template/', '', tailor_file_name)
+        # new_tailor_file_name = re.sub('//', '/', tailor_file_name)
+        with open(tailor_file_name) as f:
+            tailor_file = f.read()
+
+        (f, tempfile_name) = tempfile.mkstemp()
+        logger.info(f"writing {tailor_file_name} to {new_tailor_file_name}")
+        with open(tempfile_name, 'w') as f:
+            for line in tailor_file.splitlines():
+                f.write(line)
+
+        # if os.path.isfile(new_tailor_file_name):
+        #     os.remove(new_tailor_file_name)
+        # os.rename(tempfile_name, new_tailor_file_name)
+
+
+#-------------------------------------------------------------------------------
 # Run
 #-------------------------------------------------------------------------------
 if __name__ == "__main__":
     logger = setup_logger(args.verbose)
     resolved_keys = parse_defaults(args.defaults)
-    resolvable_keys = get_resolvable_keys_list(args.ordered_keys)
+    resolvable_keys = get_resolvable_keys_list(args.resolve_keys)
     # config_files = get_config_files(args.config_files)
     # configs = read_config_files(config_files)
     configs = read_config_files(args.config_files)
     resolved_config = resolve_configs(resolvable_keys, copy.deepcopy(configs), resolved_keys)
     config_map = consolidate_configs(resolved_config, resolved_keys)
-    print(yaml.dump(config_map))
+    print_config_map(args.resolved_file, config_map)
     tailor_files = get_tailor_files(args.tailor_files)
+    substitue_keys_in_tailor_files(tailor_files, config_map)
     sys.exit(0)
