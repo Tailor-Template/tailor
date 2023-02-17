@@ -13,4 +13,10 @@ python3 tailor.py --config-files app.yml product.yml cloud.yml --defaults branch
 * product.yml - anything that is consistent within a product but not specific to a single application.  this file would be listed prior to the global config so that it's values can override the global ones of the same key name.  this file would be in a central location for the product
 * app.yml - unique to this application.  this file would be listed first to insure it's values override any values found in other configs
 
-** see examples in tst directrory
+** see examples in tst* directrory
+
+# ToDo
+* allow configs to be URLs
+* add default path like script-dir for config file lookup if not in cwd
+* create fully working example application and configs for an AWS environment using terraform
+
