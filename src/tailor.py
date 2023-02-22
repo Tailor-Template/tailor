@@ -12,7 +12,6 @@ import re
 import traceback
 import copy
 import tempfile
-# import json
 import yaml
 
 # get command line args
@@ -22,7 +21,6 @@ parser.add_argument("--tailor-files", nargs='+', default=[], help="List of glob 
 parser.add_argument("--defaults", nargs='*', default=[], help="list of key value pairs (default None)", required=False)
 parser.add_argument("--resolve-keys", nargs='*', default=[":AWS_DEFAULT:"], help="list of key names to resolve in config files (default :AWS_DEFAULT:)", required=False)
 parser.add_argument("--resolved-file", type=str, default="tailored.yml", help="output file name ", required=False)
-# parser.add_argument("--threads", type=int, default=1, help="Number of Threads (default 1)", required=False)
 parser.add_argument("--verbose", default=False, help="add verbose messaging (default false)", required=False, action='store_true')
 
 try:
