@@ -20,7 +20,7 @@ parser.add_argument("--config-files", nargs='+', default=[], help="list of confi
 parser.add_argument("--tailor-files", nargs='+', default=[], help="List of glob patterns to use for searching files to tailor (default None)", required=False)
 parser.add_argument("--defaults", nargs='*', default=[], help="list of key value pairs (default None)", required=False)
 parser.add_argument("--resolve-keys", nargs='*', default=[":AWS_DEFAULT:"], help="list of key names to resolve in config files (default :AWS_DEFAULT:)", required=False)
-parser.add_argument("--resolved-file", type=str, default="tailored.yml", help="output file name ", required=False)
+parser.add_argument("--resolved-file", type=str, default="tailor.yml", help="output file name ", required=False)
 parser.add_argument("--verbose", default=False, help="add verbose messaging (default false)", required=False, action='store_true')
 
 try:
@@ -31,7 +31,7 @@ except Exception:
 
 # globals
 PRESET_RESOLVE_KEYS = {
-    "AWS_DEFAULT": ['environment', 'account_name', 'branch', 'region']
+    "AWS_DEFAULT": ['environment', 'branch', 'account_name', 'region', 'vpc']
 }
 
 #-------------------------------------------------------------------------------
@@ -177,7 +177,9 @@ def colapse_and_get_ordered_list_keys(resolvable_keys: list, config_node: map, r
         if key in ['resolved', 'defaults']:
             continue
         if key not in resolvable_keys:
-            logger.warning(f"Unknown element structure '{key}' nested in {yaml.dump(config_node)}")
+            logger.warning(f"Unknown element structure '{key}' at top level")
+            logger.debug(f"{yaml.dump(config_node)}")
+            continue
         node = config_node[key]
         move_leaf_keys_to_resolved_key_list(node)
         for resolvable_key in resolvable_keys:
@@ -256,25 +258,31 @@ def print_config_map(resolved_paramers_filename, config_map):
 
 #-------------------------------------------------------------------------------
 # parse each file in list and rewite as new file with tokens replaced
-# * remove file prefix 'tailor-'
-# * remove directory 'tailor/'
+# * remove file prefix 'tailor-template-'
+# * remove directory 'tailor-template/'
 # * otherwise rewrite original file
 #-------------------------------------------------------------------------------
 def substitue_keys_in_tailor_files(tailor_files: list, config_map: map):
     for tailor_file_name in tailor_files:
         new_tailor_file_name = re.sub('tailor-template-', '', tailor_file_name)
-        new_tailor_file_name = re.sub('tailor-template/', '', tailor_file_name)
+        new_tailor_file_name = re.sub('tailor-template/', '', new_tailor_file_name)
 
-        (f, tempfile_name) = tempfile.mkstemp(dir='.')
-        logger.info(f"tailoring {tailor_file_name} and writing to {new_tailor_file_name}")
-        with open(tailor_file_name, "r") as infile, open(tempfile_name, "w") as outfile:
-            for line in infile:
-                new_line = re.sub(r'\{\{\s(.+?)\s\}\}', lambda m: get_token_replacement(m, config_map), line)
-                outfile.write(new_line)
+        try:
+            tempfile_name = tempfile.mkstemp(dir='.')[1]
+            logger.info(f"tailoring {tailor_file_name} and writing to {new_tailor_file_name}")
+            with open(tailor_file_name, "r") as infile, open(tempfile_name, "w") as outfile:
+                for line in infile:
+                    new_line = line
+                    while re.findall(r'\{\{\s*([\w\.]+?)\s*\}\}', new_line):
+                        new_line = re.sub(r'\{\{\s*([\w\.]+?)\s*\}\}', lambda m: get_token_replacement(m, config_map), new_line)
+                    outfile.write(new_line)
 
-        if os.path.isfile(new_tailor_file_name):
-            os.remove(new_tailor_file_name)
-        os.rename(tempfile_name, new_tailor_file_name)
+            if os.path.isfile(new_tailor_file_name):
+                os.remove(new_tailor_file_name)
+            os.rename(tempfile_name, new_tailor_file_name)
+        finally:
+            if os.path.isfile(tempfile_name):
+                os.remove(tempfile_name)
 
 
 #-------------------------------------------------------------------------------
@@ -282,12 +290,18 @@ def substitue_keys_in_tailor_files(tailor_files: list, config_map: map):
 #-------------------------------------------------------------------------------
 def get_token_replacement(m: re.Match, config_map: map):
     token = m.group(1)
-    if token not in config_map['config']:
-        print(f"ERROR: token {token} could not be resolved")
+    current_node = config_map['config']
+    try:
+        for nested_token in token.split('.'):
+            if nested_token in current_node:
+                current_node = current_node[nested_token]
+        value = current_node
+        assert(isinstance(value, str))
+    except Exception:
+        print(f"ERROR: token '{token}' could not be resolved")
         sys.exit(1)
-    else:
-        value = config_map['config'][token]
     return str(value)
+
 
 #-------------------------------------------------------------------------------
 # Run
