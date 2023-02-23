@@ -96,7 +96,7 @@ def get_vpc_subnets(client: boto3.client, vpc: str, region: str):
                     if tag['Key'] == 'Name':
                         subnet_name = tag['Value']
                         break
-            subnets.append({subnet_id: {'name': subnet_name, 'cidr': subnet['CidrBlock'], 'az': subnet['AvailabilityZone']}})
+            subnets.append({subnet_id: {'subnet_name': subnet_name, 'cidr': subnet['CidrBlock'], 'az': subnet['AvailabilityZone']}})
     except Exception:
         logger.error(f"could not get vpcs in region {region}")
         sys.exit(traceback.print_exc())
@@ -126,11 +126,11 @@ def get_vpc_info(client: boto3.client, vpc: str, region: str):
         response = client.describe_vpcs(VpcIds=[vpc])
         vpc_info['defaults']['vpc_cidrs'] = ','.join([c["CidrBlock"] for c in response['Vpcs'][0]["CidrBlockAssociationSet"]])
         vpc_info['defaults']['is_default'] = response['Vpcs'][0]['IsDefault']
-        vpc_info['defaults']['name'] = ''
+        vpc_info['defaults']['vpc_name'] = ''
         if 'Tags' in response['Vpcs'][0]:
             for tag in response['Vpcs'][0]['Tags']:
                 if tag['Key'] == 'Name':
-                    vpc_info['defaults']['name'] = tag['Value']
+                    vpc_info['defaults']['vpc_name'] = tag['Value']
                     break
         subnets = get_vpc_subnets(client, vpc, region)
         nat_gw_ips = get_nat_gateway_ips(client, vpc, region)
