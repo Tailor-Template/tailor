@@ -12,6 +12,7 @@ import re
 import traceback
 import copy
 import tempfile
+import shutil
 import yaml
 
 # get command line args
@@ -268,7 +269,7 @@ def substitue_keys_in_tailor_files(tailor_files: list, config_map: map):
         new_tailor_file_name = re.sub('tailor-template/', '', new_tailor_file_name)
 
         try:
-            tempfile_name = tempfile.mkstemp(dir='.')[1]
+            tempfile_name = tempfile.mkstemp()[1]
             logger.info(f"tailoring {tailor_file_name} and writing to {new_tailor_file_name}")
             with open(tailor_file_name, "r") as infile, open(tempfile_name, "w") as outfile:
                 for line in infile:
@@ -279,7 +280,7 @@ def substitue_keys_in_tailor_files(tailor_files: list, config_map: map):
 
             if os.path.isfile(new_tailor_file_name):
                 os.remove(new_tailor_file_name)
-            os.rename(tempfile_name, new_tailor_file_name)
+            shutil.move(tempfile_name, new_tailor_file_name)
         finally:
             if os.path.isfile(tempfile_name):
                 os.remove(tempfile_name)
