@@ -161,7 +161,7 @@ def resolve_configs(resolvable_keys: list, configs: list, resolved_keys: dict):
 def check_for_unresolved_resolvable_keys(resolvable_keys: list, config_node: map):
     for resolvable_key in resolvable_keys:
         if resolvable_key in config_node:
-            if not isinstance(config_node[resolvable_key], (str, int, float)):
+            if not isinstance(config_node[resolvable_key], (str, int, float, bool)):
                 return True
     return False
 
@@ -222,7 +222,7 @@ def move_leaf_keys_to_resolved_key_list(node: map):
     if 'defaults' not in node:
         node['defaults'] = {}
     for key in list(node):
-        if isinstance(node[key], (str, int, float)):
+        if isinstance(node[key], (str, int, float, bool)):
             node['resolved'][key] = node[key]
             del(node[key])
 
