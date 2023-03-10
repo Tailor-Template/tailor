@@ -297,7 +297,7 @@ def get_token_replacement(m: re.Match, config_map: map):
             if nested_token in current_node:
                 current_node = current_node[nested_token]
         value = current_node
-        assert(isinstance(value, str))
+        assert(isinstance(value, (str, int, float, bool)))
     except Exception:
         print(f"ERROR: token '{token}' could not be resolved")
         sys.exit(1)
