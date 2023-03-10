@@ -1,5 +1,6 @@
 # Project Tailor
 Script to parse ordered list of yaml config files and tailor external files using keys from resolved configs
+
 ** special thanks to @bhasvanth for initial concept
 
 # Typical Usage
@@ -37,5 +38,4 @@ docker run -v ~/.aws:/root/.aws -e AWS_PROFILE=some_aws_account_profile --rm --e
 * allow configs to be URLs
 * add default path like script-dir for config file lookup if not in cwd
 * create fully working example application and configs for an AWS environment using terraform
-* fix bug where keys whose value type is bool are ignored
 
