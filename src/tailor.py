@@ -197,16 +197,16 @@ def colapse_and_get_ordered_list_keys(resolvable_keys: list, config_node: map, r
                     resolution_occured = colapse_and_get_ordered_list_keys(resolvable_keys, resolved_node, resolved_keys)
 
                     # if there are unresolved sub structures that are resolvable, do no delete this node
-                    if check_for_unresolved_resolvable_keys(resolvable_keys, resolved_node):
-                        logger.info(f"found more ordered keys in {resolved_keys[key]}\n:{yaml.dump(resolved_node)}")
-                        break
-
                     move_leaf_keys_to_resolved_key_list(resolved_node)
                     merge_keys(resolved_node['defaults'], resolved_node['resolved'], True)
                     # merge_keys(node['defaults'], node['resolved'], True)
                     merge_keys(node['defaults'], resolved_node['defaults'], True)
                     merge_keys(config_node['defaults'], node['defaults'], True)
                     update_resolved_keys(config_node['defaults'], resolvable_keys, resolved_keys)
+                    if check_for_unresolved_resolvable_keys(resolvable_keys, resolved_node):
+                        logger.debug(f"found more ordered keys in {resolved_keys[key]}\n:{yaml.dump(resolved_node)}")
+                        break
+
                     del(config_node[key])
                     resolution_occured = True
 
