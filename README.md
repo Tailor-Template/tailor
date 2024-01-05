@@ -10,6 +10,12 @@ direct from source, e.g
 ``` bash
 python3 tailor.py --config-files app.yml product.yml cloud.yml --defaults branch=develop region=us-east-1 --tailor-files 'terraform/tailor-template-*.tfvars' 'sql/tailor-template-bootstrap.sql' 'yarn-build-output/*.js'
 ```
+
+Resolve alternate cloud keys:
+``` bash
+python3 tailor.py --config-files app.yml product.yml cloud.yml --resolve-keys ":AZURE_DEFAULT:" --defaults branch=develop region=eastus --tailor-files 'terraform/tailor-template-*.tfvars' 'sql/tailor-template-bootstrap.sql' 'yarn-build-output/*.js'
+```
+
 ... or via container (in a build/deploy pipeline), e.g
 ``` bash
 tf_env=uat
