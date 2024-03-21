@@ -77,7 +77,8 @@ def get_vpcs(client: boto3.client, region: str):
         vpcs = [v["VpcId"] for v in response["Vpcs"]]
     except Exception:
         logger.error(f"could not get vpcs in region {region}")
-        sys.exit(traceback.print_exc())
+        logger.debug(traceback.print_exc())
+        vpcs = []
     return vpcs
 
 
