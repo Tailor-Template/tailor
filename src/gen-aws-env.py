@@ -102,10 +102,6 @@ def get_vpc_subnets(client: boto3.client, vpc: str, region: str):
                 for tag in subnet['Tags']:
                     if tag['Key'] == 'Name':
                         subnet_name = tag['Value']
-                        # if re.search(r'public', subnet_name, re.IGNORECASE):
-                        #     public_subnets.append(subnet_id)
-                        # if re.search(r'private', subnet_name, re.IGNORECASE):
-                        #     private_subnets.append(subnet_id)
                         if args.best_effort:
                             # if subnet tag value has the substring public in it, assume it is a public subnet and add to public_subnet list
                             if 'public' in tag['Value'].lower():
