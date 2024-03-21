@@ -4,6 +4,7 @@
 #   python3 gen-aws-env.py
 
 import os
+import re
 import sys
 import argparse
 import logging
@@ -15,6 +16,7 @@ import boto3
 parser = argparse.ArgumentParser()
 parser.add_argument("--scan-results-file", type=str, default="aws-cloud.yml", help="output file name (default aws-cloud.yml)", required=False)
 parser.add_argument("--verbose", default=False, help="add verbose messaging (default false)", required=False, action='store_true')
+parser.add_argument("--best-effort", default=False, help="best effort to determine public/private subnets (default false)", required=False, action='store_true')
 
 try:
     args = parser.parse_args()
@@ -31,6 +33,8 @@ def setup_logger(verbose):
         log_level = logging.DEBUG
     logger_format = '%(asctime)s - %(name)s - [%(levelname)s] - %(message)s'
     logging.basicConfig(format=logger_format, level=log_level)
+    if verbose:
+        logger.info("logger verbosity set to DEBUG")
     return logging.getLogger(os.path.basename(__file__))
 
 
@@ -40,7 +44,7 @@ def setup_logger(verbose):
 def print_config_map(resolved_paramers_filename, config_map):
     logger.info(f"writing configs to {resolved_paramers_filename}")
     with open(resolved_paramers_filename, 'w') as f:
-        yaml.dump(config_map, f)
+        yaml.dump({"config": {"account_name": config_map}}, f)
 
 
 #-------------------------------------------------------------------------------
@@ -87,6 +91,8 @@ def get_vpcs(client: boto3.client, region: str):
 #-------------------------------------------------------------------------------
 def get_vpc_subnets(client: boto3.client, vpc: str, region: str):
     subnets = []
+    public_subnets = []
+    private_subnets = []
     try:
         response = client.describe_subnets(Filters=[{'Name': 'vpc-id','Values': [vpc]}])
         for subnet in response["Subnets"]:
@@ -96,12 +102,22 @@ def get_vpc_subnets(client: boto3.client, vpc: str, region: str):
                 for tag in subnet['Tags']:
                     if tag['Key'] == 'Name':
                         subnet_name = tag['Value']
+                        # if re.search(r'public', subnet_name, re.IGNORECASE):
+                        #     public_subnets.append(subnet_id)
+                        # if re.search(r'private', subnet_name, re.IGNORECASE):
+                        #     private_subnets.append(subnet_id)
+                        if args.best_effort:
+                            # if subnet tag value has the substring public in it, assume it is a public subnet and add to public_subnet list
+                            if 'public' in tag['Value'].lower():
+                                public_subnets.append(subnet_id)
+                            if 'private' in tag['Value'].lower():
+                                private_subnets.append(subnet_id)
                         break
             subnets.append({subnet_id: {'subnet_name': subnet_name, 'cidr': subnet['CidrBlock'], 'az': subnet['AvailabilityZone']}})
     except Exception:
         logger.error(f"could not get vpcs in region {region}")
         sys.exit(traceback.print_exc())
-    return subnets
+    return (subnets, private_subnets, public_subnets)
 
 
 #-------------------------------------------------------------------------------
@@ -122,7 +138,7 @@ def get_nat_gateway_ips(client: boto3.client, vpc: str, region: str):
 # get list of all vpcs in region
 #-------------------------------------------------------------------------------
 def get_vpc_info(client: boto3.client, vpc: str, region: str):
-    vpc_info = { 'defaults': {} }
+    vpc_info = { 'defaults': {}, 'subnet': []}
     try:
         response = client.describe_vpcs(VpcIds=[vpc])
         vpc_info['defaults']['vpc_cidrs'] = ','.join([c["CidrBlock"] for c in response['Vpcs'][0]["CidrBlockAssociationSet"]])
@@ -133,9 +149,15 @@ def get_vpc_info(client: boto3.client, vpc: str, region: str):
                 if tag['Key'] == 'Name':
                     vpc_info['defaults']['vpc_name'] = tag['Value']
                     break
-        subnets = get_vpc_subnets(client, vpc, region)
+        (subnets, private_subnets, public_subnets) = get_vpc_subnets(client, vpc, region)
         nat_gw_ips = get_nat_gateway_ips(client, vpc, region)
         vpc_info['subnet'] = subnets
+        if args.best_effort:
+            if private_subnets:
+                vpc_info['defaults']['private_subnets'] = ','.join(private_subnets)
+            if public_subnets:
+                vpc_info['defaults']['public_subnets'] = ','.join(public_subnets)
+        vpc_info['defaults']['nat_gw'] = ','.join(nat_gw_ips)
         vpc_info['defaults']['nat_gw'] = ','.join(nat_gw_ips)
     except Exception:
         logger.error(f"could not get vpc information for {vpc} in region {region}")
@@ -161,9 +183,17 @@ def map_aws_cloud_environment():
             for vpc in vpcs:
                 vpc_info = get_vpc_info(ec2_client, vpc, region)
                 account_info_vpc[vpc] = vpc_info
+                # if vpc_info is empty, remove vpc from account_info_vpc
+                if not account_info_vpc[vpc]:
+                    del account_info_vpc[vpc]
         except Exception:
             logger.error("could not get regions")
             sys.exit(traceback.print_exc())
+        finally:
+            # if region does not have any vpcs, remove region from account_info
+            if not account_info_vpc:
+                del account_info[account_name]['region'][region]
+
     print(f"{yaml.dump(account_info)}")
     return account_info
 
