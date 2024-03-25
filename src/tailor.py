@@ -32,7 +32,8 @@ except Exception:
 
 # globals
 PRESET_RESOLVE_KEYS = {
-    "AWS_DEFAULT": ['environment', 'branch', 'account_name', 'region', 'vpc']
+    "AWS_DEFAULT": ['environment', 'branch', 'account_name', 'region', 'vpc'],
+    "AZURE_DEFAULT": ['environment', 'branch', 'subscription_name', 'region', 'vnet']
 }
 
 #-------------------------------------------------------------------------------
