@@ -37,7 +37,7 @@ config:
 ```
 To generate the YAML config for an account, run:
 ``` bash
-docker run -v ~/.aws:/root/.aws -e AWS_PROFILE=some_aws_account_profile --rm --entrypoint /usr/local/bin/python3 ghcr.io/tailor-template/tailor:latest /usr/src/app/gen-aws-env.py > aws_account_name.yml
+docker run -v ~/.aws:/root/.aws -e AWS_PROFILE=some_aws_account_profile --rm --entrypoint /usr/local/bin/python3 ghcr.io/tailor-template/tailor:latest /usr/src/app/gen-aws-env.py --best-effort > aws_account_name.yml
 ```
 
 # ToDo
