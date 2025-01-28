@@ -21,6 +21,7 @@ parser.add_argument("--config-files", nargs='+', default=[], help="list of confi
 parser.add_argument("--tailor-files", nargs='+', default=[], help="List of glob patterns to use for searching files to tailor (default None)", required=False)
 parser.add_argument("--defaults", nargs='*', default=[], help="list of key value pairs (default None)", required=False)
 parser.add_argument("--resolve-keys", nargs='*', default=[":AWS_DEFAULT:"], help="list of key names to resolve in config files (default :AWS_DEFAULT:)", required=False)
+parser.add_argument("--ignore-keys", nargs='*', default=[], help="list of key names to always ignore in tailored files", required=False)
 parser.add_argument("--resolved-file", type=str, default="tailor.yml", help="output file name ", required=False)
 parser.add_argument("--verbose", default=False, help="add verbose messaging (default false)", required=False, action='store_true')
 
@@ -277,6 +278,10 @@ def substitue_keys_in_tailor_files(tailor_files: list, config_map: map):
                     new_line = line
                     while re.findall(r'\{\{\s*([\w\.]+?)\s*\}\}', new_line):
                         new_line = re.sub(r'\{\{\s*([\w\.]+?)\s*\}\}', lambda m: get_token_replacement(m, config_map), new_line)
+                    while re.findall(r'\{\%([\w\.]+?)\%\}', new_line):
+                        # change each occurense of {%key%} to {{key}}
+                        new_line = re.sub(r'\{\%([\w\.]+?)\%\}', f'{{{{\\1}}}}', new_line)
+                        # new_line = re.sub(r'{%([\w\.]+?)%}', f'{{{re.Match.group(1)}}}', new_line)
                     outfile.write(new_line)
 
             if os.path.isfile(new_tailor_file_name):
@@ -292,6 +297,10 @@ def substitue_keys_in_tailor_files(tailor_files: list, config_map: map):
 #-------------------------------------------------------------------------------
 def get_token_replacement(m: re.Match, config_map: map):
     token = m.group(1)
+    if token in ignore_keys:
+        logger.warning(f"Ignoring token '{token}'")
+        # change to non-resolvable syntax
+        return re.sub(r'\{\{(\s*[\w\.]+?\s*)\}\}', f'{{%{token}%}}', m.group(0))
     current_node = config_map['config']
     try:
         for nested_token in token.split('.'):
@@ -300,7 +309,7 @@ def get_token_replacement(m: re.Match, config_map: map):
         value = current_node
         assert(isinstance(value, (str, int, float, bool)))
     except Exception:
-        print(f"ERROR: token '{token}' could not be resolved")
+        logger.error(f"ERROR: token '{token}' could not be resolved")
         sys.exit(1)
     return str(value)
 
@@ -312,11 +321,15 @@ if __name__ == "__main__":
     logger = setup_logger(args.verbose)
     resolved_keys = parse_defaults(args.defaults)
     resolvable_keys = get_resolvable_keys_list(args.resolve_keys)
+    ignore_keys = args.ignore_keys
     # config_files = get_config_files(args.config_files)
     # configs = read_config_files(config_files)
     configs = read_config_files(args.config_files)
     resolved_config = resolve_configs(resolvable_keys, copy.deepcopy(configs), resolved_keys)
     config_map = consolidate_configs(resolved_config, resolved_keys)
+    # check if config map has a key default.ignore_keys and if so, add to ignore_keys
+    if 'ignore_keys' in config_map['config']:
+        ignore_keys = ignore_keys + re.split(',',config_map['config']['ignore_keys'])
     print_config_map(args.resolved_file, config_map)
     tailor_files = get_tailor_files(args.tailor_files)
     substitue_keys_in_tailor_files(tailor_files, config_map)
